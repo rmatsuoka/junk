@@ -1,0 +1,33 @@
+#!/bin/sh
+
+# 5parse -- parse a thread of 5ch.net.
+#
+# usage: 5parse [file...]
+#
+# example:
+# $ curl -s https://XXXXXX.5ch.net/test/read.cgi/XXXXXXX/XXXXXXX | 5parse
+
+iconv -f SHIFT-JIS -t UTF-8 -- ${1+"$@"} |
+	tr -d '\r' |
+	sed 's/<[^>]\{1,\}>/\n&/g' |
+	sed '
+		/^<div class="post"/c\
+###end###\
+###begin###
+		/^<div class="push"/c\
+###end###
+' |
+	sed -n '/^###begin###$/,/^###end###$/p' |
+	sed 's/^<[^>]\{1,\}> *//g' |
+	grep -v '^$' |
+	sed '
+		s/^###begin###$//
+		s/^###end###$//
+		s/^ *//
+		s/ *$//
+		s/ /_/g
+		s/&gt;/>/g
+		s/&lt;/</g' |
+	awk '
+		BEGIN{ FS="\n"; RS="" }
+		{ for(i=1;i<=NF;i++){ printf("%s%s", $i, i==NF?"\n":OFS) } }'
