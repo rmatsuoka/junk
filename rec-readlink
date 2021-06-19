@@ -1,0 +1,9 @@
+#!/bin/sh
+# rec-readlink -- resolve symbolic links recursively
+
+p=${1?"missing operand
+usage: ${0##*/} PATH_TO_SYMLINK"}
+
+[ -L "$p" ] ||  exit 1
+while p=$(readlink "$p"); do echo "$p"; done
+exit 0

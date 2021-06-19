@@ -1,0 +1,29 @@
+#!/bin/sh
+# normpath -- normalize paths.
+#
+# example: (we assume that the current directory is '/home/you')
+# $ normpath   ..   /home/./you/../../usr/bin/abc
+# /home
+# /usr/bin/abc
+# $
+#
+# NOTE: This program does not care about existence of /usr/bin/abc.
+for i; do
+	case "$i" in /*):;; *)i="$PWD/$i";; esac
+	printf '%s\n' "$i" |
+	tr '/' '\n' |
+	awk '
+		BEGIN{ c=0 }
+		"." == $0 || "" == $0 { next }
+		".." == $0{
+			c = (c==0) ? 0 : c-1
+			next
+		}
+		{ p[++c] = $0 }
+		END{
+			printf("/")
+			for(i=1;i<=c;i++)
+				printf("%s%s", p[i], i==c ? "" : "/")
+			printf("\n")
+		}'
+done
