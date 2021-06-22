@@ -1,13 +1,13 @@
 #!/bin/sh
 
-# 5parse -- parse a thread of 5ch.net.
+# 5parse -- parse a thread of 5ch.net
 #
 # usage: 5parse [file...]
 #
 # example:
 # $ curl -s https://XXXXXX.5ch.net/test/read.cgi/XXXXXXX/XXXXXXX | 5parse
 
-iconv -f SHIFT-JIS -t UTF-8 -- ${1+"$@"} |
+iconv -f CP932 -t UTF-8 -- ${1+"$@"} |
 	tr -d '\r' |
 	sed 's/<[^>]\{1,\}>/\n&/g' |
 	sed '
