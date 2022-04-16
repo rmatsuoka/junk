@@ -1,0 +1,23 @@
+#!/bin/sh
+
+# generate curl command from output of netmon_parser
+
+flags=
+while [ $# -gt 0 ]
+do
+	x=$(echo "$1" | sed "s/'/'\\\\''/g")
+	flags="$flags '$x'"
+	shift
+done
+
+printf '%s %s' curl "$flags"
+while IFS='	' read -r key val
+	do
+		if [ "$key" = "@URL" ]
+		then
+			printf ' '\''%s'\' "$val"
+			continue
+		fi
+		printf ' -H '\''%s: %s'\' "$key" "$val"
+	done
+printf '\n'

@@ -1,0 +1,73 @@
+#!/bin/sh
+
+libpath=$(pwd)/lib
+TMPDIR=${TMPDIR:-/tmp}
+
+output=out.mp4
+
+usage() {
+	echo "usage: $0 [-o OUTPUT] [FILE]" >&2
+	exit 1
+}
+
+fatal() {
+	echo "$0: fatal! $m3u8 $tmpdir $headers remained" >&2
+	exit 1
+}
+
+while getopts o:h flag
+do
+	case "$flag" in
+	o)	output="$OPTARG";;
+	h)	usage;;
+	?)	fatal;;
+	esac
+done
+shift $((OPTIND-1))
+
+case "$output" in
+/*)	:;;
+*)	output="$(pwd)/$output";;
+esac
+
+if [ -f "$output" ]
+then
+	echo "$0: $output: already existed" >&2
+	exit 1
+fi
+
+# for debug
+# TMPDIR=$(pwd)/tmp
+headers=$(mktemp $TMPDIR/hls_headers.$$.XXXXXXXXXX) || fatal
+m3u8=$(mktemp $TMPDIR/hls_m3u8.$$.XXXXXXXXXX) || fatal
+tmpdir=$(mktemp -d $TMPDIR/hls_tmpdir.$$.XXXXXXXXXX) || fatal
+
+# get .m3u8 file
+cat -- ${1+"$1"} | $libpath/netmon_parser > $headers
+URL=$(grep '^@URL' $headers | cut -f2-)
+$libpath/curl_generator -o - --compressed < $headers |
+	tee /dev/stderr |
+	sh > $m3u8 || fatal
+
+# parse .m3u8 file
+NewURLs=$($libpath/url_from_m3u8 "$URL" < $m3u8) || fatal
+
+# get files and concatenate its into a .mp4
+(
+	cd $tmpdir
+	pwd
+	sed '/^@URL/c\
+	@URL	'"$NewURLs" -- "$headers" |
+		$libpath/curl_generator --compressed -O |
+		tee /dev/stderr |
+		sh || exit 1
+
+	# An ordinary filename of .ts is 'XXX-N-v1-a1' where N is a number
+	ls * |
+		sort -n -t - -k2,2 |
+		xargs cat |
+		ffmpeg -i - -c copy "$output" || exit 1
+) || fatal
+
+# not use 'trap' in order to rest tmpfiles at fatal status
+rm -rf "$m3u8" "$tmpdir" "$headers"
