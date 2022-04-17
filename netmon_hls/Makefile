@@ -1,7 +1,7 @@
 PREFIX=$(HOME)/.local
 
 netmon_hls.fixed: netmon_hls
-	sed 's:^libpath=.*:libpath=$(PREFIX)/lib/netmon_hls:' netmon_hls > $@
+	sed 's:^libpath=.*###Makefile###:libpath=$(PREFIX)/lib/netmon_hls:' netmon_hls > $@
 
 install: netmon_hls.fixed
 	mkdir -p $(PREFIX)/bin

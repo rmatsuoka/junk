@@ -4,8 +4,7 @@
 
 URL=${1?}
 
-awk \
-	-v URL_dir="$(dirname "$URL")" '
+awk -v URL_dir="$(dirname "$URL")" '
 	BEGIN {
 		gotten = 0
 		URL_m3u8 = ""
