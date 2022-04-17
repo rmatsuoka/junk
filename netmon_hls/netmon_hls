@@ -45,7 +45,7 @@ tmpdir=$(mktemp -d $TMPDIR/hls_tmpdir.$$.XXXXXXXXXX) || fatal
 cat -- ${1+"$1"} | $libpath/netmon_parser > $headers
 URL=$(grep '^@URL' $headers | cut -f2-)
 $libpath/curl_generator -o - --compressed < $headers |
-	tee /dev/stderr |
+	tee /dev/fd/2 |
 	sh > $m3u8 || fatal
 
 # parse .m3u8 file
@@ -58,7 +58,7 @@ NewURLs=$($libpath/url_from_m3u8 "$URL" < $m3u8) || fatal
 	sed '/^@URL/c\
 @URL	'"$NewURLs" -- "$headers" |
 		$libpath/curl_generator --compressed -O |
-		tee /dev/stderr |
+		tee /dev/fd/2 |
 		sh || exit 1
 
 	# An ordinary filename of .ts is 'XXX-N-v1-a1' where N is a number
