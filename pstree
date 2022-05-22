@@ -1,0 +1,97 @@
+#!/usr/bin/awk -f
+# usage: pstree [-vroot=PID]
+
+BEGIN {
+	cmd = "ps -e -o pid,ppid,args"
+	while (cmd | getline) {
+		# line format:
+		# id parent_id descripion
+		child[$2,nchild[$2]++] = $1
+		parent[$1] = $2
+		elem[$1] = base($3)
+	}
+	close(cmd)
+	if (root == "") {
+		if (1 in nchild) {
+			root = 1
+		} else {
+			# find the root from the last child.
+			root = $2
+			while (parent[root] != "" && seenparent[parent[root]] != 1) {
+				root = parent[root]
+				seenparent[root] = 1
+			}
+		}
+	}
+	printtree(root)
+}
+
+function base(path) {
+	sub(/.*\//, "", path)
+	sub(/:$/, "", path)
+	sub(/^-/, "", path)
+	return path
+}
+
+function printtree(root,        i, str) {
+	# str = sprintf("[%s(%s)]", elem[root], root)
+	str = sprintf("[%s]", elem[root])
+	printf("%s", str)
+
+	if (nchild[root] < 1) {
+		printf("\n")
+		return
+	}
+
+	if (seen[root] == 1) {
+		printf("---...\n")
+		return
+	}
+	seen[root] = 1
+
+	prefix_append(repeat(" ", length(str)))
+	for (i = 0; i < nchild[root]; i++) {
+		if (i == 0) {
+			if (nchild[root] == 1) {
+				printf("---")
+				prefix_append("   ")
+			} else {
+				printf("-+-")
+				prefix_append(" | ")
+			}
+		} else if (i == nchild[root] - 1) {
+			printf("%s `-", prefix())
+			prefix_append("   ")
+		} else {
+			printf("%s |-", prefix())
+			prefix_append(" | ")
+		}
+		printtree(child[root, i])
+		prefix_delend()
+	}
+	prefix_delend()
+}
+
+function repeat(c, n,        i, ret) {
+	ret = ""
+	for (i = 0; i < n; i++) {
+		ret = ret c
+	}
+	return ret
+}
+
+function prefix(        i, ret) {
+	for (i = 0; i < _prefix_n; i++) {
+		ret = ret _prefix[i]
+	}
+	return ret
+}
+
+function prefix_append(s) {
+	_prefix[_prefix_n++] = s
+}
+
+function prefix_delend() {
+	_prefix_n--
+}
+
