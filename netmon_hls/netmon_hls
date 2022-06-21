@@ -3,10 +3,14 @@
 libpath=$(pwd)/lib ###Makefile###
 TMPDIR=${TMPDIR:-/tmp}
 
-output=out.mp4
+output=out.ts
 
 usage() {
-	echo "usage: $0 [-o OUTPUT] [FILE]" >&2
+	cat >&2 <<EOF
+usage: $0 [-o OUTPUT] [FILE]
+  -o OUTPUT
+     filename of a output, which is a .ts file. (default $output)
+EOF
 	exit 1
 }
 
@@ -64,8 +68,7 @@ NewURLs=$($libpath/url_from_m3u8 "$URL" < $m3u8) || fatal
 	# An ordinary filename of .ts is 'XXX-N-v1-a1' where N is a number
 	ls * |
 		sort -n -t - -k2,2 |
-		xargs cat |
-		ffmpeg -i - -c copy "$output" || exit 1
+		xargs cat > "$output" || exit 1
 ) || fatal
 
 # not use 'trap' in order to rest tmpfiles at fatal status
