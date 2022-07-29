@@ -85,16 +85,15 @@ END {
 	sub(/\/[^/]*$/, "", dirURL)
 
 	_CURLFLAGS = "--remote-name-all --compressed --retry 5 --retry-delay 30"
-	printf("curl %s %s", _CURLFLAGS, CURLFLAGS)
+	printf("curl %s %s \\\n", _CURLFLAGS, CURLFLAGS)
 	for (k in Headers) {
-		printf(" -H '%s: %s'", k, Headers[k])
+		printf("\t-H '%s: %s' \\\n", k, Headers[k])
 	}
 	for (i = 0; i < nURL; i++) {
 		if (URLs[i] ~ /^http/) {
-			printf(" '%s'", URLs[i])
+			printf("\t'%s' \\\n", URLs[i])
 		} else {
-			printf(" '%s/%s'", dirURL, URLs[i])
+			printf("\t'%s/%s' \\\n", dirURL, URLs[i])
 		}
 	}
-	print "" 
 }
