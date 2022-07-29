@@ -1,0 +1,60 @@
+#!/usr/bin/awk -f
+
+# netmon_parser
+# parse netmon's request headers list
+
+# Netmon is a firefox extention which view the HTTP headers of the current page.
+# URL: https://addons.mozilla.org/en-US/firefox/addon/netmon/
+
+BEGIN {
+	CURLFLAGS = "-O --compressed --retry 5 --retry-delay 30"
+
+	# Enum
+	GENERAL = 1
+	REQUEST = 2
+	RESPONSE = 3
+	# end Enum
+
+	Status = GENERAL
+}
+
+Status == 0 {
+	print "abort Status == 0" > "/dev/stderr"
+	exit 1
+}
+
+/^Request headers$/ {
+	Status = REQUEST
+	next
+}
+/^Response headers$/ {
+	Status = RESPONSE
+	next
+}
+
+Status == GENERAL && /^Request URL:/ {
+	idx = index($0, ":")
+	_URL = substr($0, idx+1)
+	next
+}
+
+Status == REQUEST {
+	idx = index($0, ":")
+	if (idx == 0)
+		next
+	key = substr($0, 1, idx-1)
+	Headers[key] = substr($0, idx+1)
+	next
+}
+
+END {
+	if (URL == "") {
+		URL = _URL
+	}
+
+	printf("curl '%s' %s", URL, CURLFLAGS)
+	for (k in Headers) {
+		printf(" -H '%s: %s'", k, Headers[k])
+	}
+	print("")
+}

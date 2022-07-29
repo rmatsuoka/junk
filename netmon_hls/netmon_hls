@@ -1,28 +1,30 @@
 #!/bin/sh
 
-libpath=$(pwd)/lib ###Makefile###
-TMPDIR=${TMPDIR:-/tmp}
-
-output=out.ts
-
 usage() {
 	cat >&2 <<EOF
 usage: $0 [-o OUTPUT] [FILE]
   -o OUTPUT
      filename of a output, which is a .ts file. (default $output)
+  -n
+     not remove tempfile
 EOF
 	exit 1
 }
 
+progname=$(basename "$0")
 fatal() {
-	echo "$0: fatal! $m3u8 $tmpdir $headers remained" >&2
+	echo "$progname: failed!" >&2
 	exit 1
 }
 
-while getopts o:h flag
+TMPDIR=${TMPDIR:-/tmp}
+output=out.ts
+nflag=false
+while getopts o:nh flag
 do
 	case "$flag" in
 	o)	output="$OPTARG";;
+	n)	nflag=true;;
 	h|?)	usage;;
 	esac
 done
@@ -33,37 +35,14 @@ case "$output" in
 *)	output="$(pwd)/$output";;
 esac
 
-if [ -f "$output" ]
-then
-	echo "$0: $output: already existed" >&2
-	exit 1
-fi
+sh -c 'set -C; : > '"$output" || fatal
 
-# for debug
-# TMPDIR=$(pwd)/tmp
-headers=$(mktemp $TMPDIR/hls_headers.$$.XXXXXXXXXX) || fatal
-m3u8=$(mktemp $TMPDIR/hls_m3u8.$$.XXXXXXXXXX) || fatal
 tmpdir=$(mktemp -d $TMPDIR/hls_tmpdir.$$.XXXXXXXXXX) || fatal
-
-# get .m3u8 file
-cat -- ${1+"$1"} | $libpath/netmon_parser > $headers
-URL=$(grep '^@URL' $headers | cut -f2-)
-$libpath/curl_generator -o - --compressed < $headers |
-	tee /dev/fd/2 |
-	sh > $m3u8 || fatal
-
-# parse .m3u8 file
-NewURLs=$($libpath/url_from_m3u8 "$URL" < $m3u8) || fatal
-
 # get files and concatenate its into a .mp4
-(
+cat -- "$@" | (
 	cd $tmpdir
-	pwd
-	sed '/^@URL/c\
-@URL	'"$NewURLs" -- "$headers" |
-		$libpath/curl_generator --compressed -O |
-		tee /dev/fd/2 |
-		sh || exit 1
+	echo cd $(pwd) >&2
+	netmon_m3u8_curl | tee /dev/fd/2 | sh
 
 	# An ordinary filename of .ts is 'XXX-N-v1-a1' where N is a number
 	ls * |
@@ -72,4 +51,9 @@ NewURLs=$($libpath/url_from_m3u8 "$URL" < $m3u8) || fatal
 ) || fatal
 
 # not use 'trap' in order to rest tmpfiles at fatal status
-rm -rf "$m3u8" "$tmpdir" "$headers"
+if [ $nflag = true ]
+then
+	echo "$progname: tempfiles are remained at $tmpdir" >&2
+else
+	rm -rf "$tmpdir"
+fi

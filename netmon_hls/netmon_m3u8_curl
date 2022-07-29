@@ -1,0 +1,100 @@
+#!/usr/bin/awk -f
+
+# netmon_m3u8_curl
+# give .m3u8 request headers from netmon page into stdin.
+# This prog downloads and parses .m3u8 and generate a curl command to downloads contains in .m3u8.
+
+# Netmon is a firefox extention which view the HTTP headers of the current page.
+# URL: https://addons.mozilla.org/en-US/firefox/addon/netmon/
+
+#
+# phase netmon
+#
+
+BEGIN {
+	PROGNAME = "netmon_m3u8_curl"
+
+	# Enum
+	GENERAL = 1
+	REQUEST = 2
+	RESPONSE = 3
+	# end Enum
+
+	Status = GENERAL
+}
+
+function fatal(msg) {
+	print PROGNAME ": " msg > "/dev/stderr"
+	exit 1
+}
+
+Status == 0 {
+	fatal("abort: Status == 0")
+}
+
+/^Request headers$/ {
+	Status = REQUEST
+	next
+}
+/^Response headers$/ {
+	Status = RESPONSE
+	next
+}
+
+Status == GENERAL && /^Request URL:/ {
+	idx = index($0, ":")
+	URL = substr($0, idx+1)
+	next
+}
+
+Status == REQUEST {
+	idx = index($0, ":")
+	if (idx == 0)
+		next
+	key = substr($0, 1, idx-1)
+	Headers[key] = substr($0, idx+1)
+	next
+}
+
+END {
+
+#
+# get .m3u8
+#
+	cmd = sprintf("curl '%s' -o - --compressed", URL)
+	for (k in Headers) {
+		cmd = cmd sprintf(" -H '%s: %s'", k, Headers[k])
+	}
+	nURL = 0
+	# not "=="
+	while (x = (cmd | getline)) {
+		if (x == -1) {
+			close(cmd)
+			fatal("command failed -- `" cmd "`")
+		}
+		if ($0 ~ /^#/)
+			continue
+		URLs[nURL++] = $0
+	}
+	close(cmd)
+#
+# generate curl command to download its contents.
+#
+	# do like dirname command
+	dirURL = URL
+	sub(/\/[^/]*$/, "", dirURL)
+
+	_CURLFLAGS = "--remote-name-all --compressed --retry 5 --retry-delay 30"
+	printf("curl %s %s", _CURLFLAGS, CURLFLAGS)
+	for (k in Headers) {
+		printf(" -H '%s: %s'", k, Headers[k])
+	}
+	for (i = 0; i < nURL; i++) {
+		if (URLs[i] ~ /^http/) {
+			printf(" '%s'", URLs[i])
+		} else {
+			printf(" '%s/%s'", dirURL, URLs[i])
+		}
+	}
+	print "" 
+}

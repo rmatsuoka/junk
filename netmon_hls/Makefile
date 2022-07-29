@@ -1,20 +1,18 @@
 PREFIX=$(HOME)/.local
+PROGS= \
+	netmon_hls \
+	netmon2curl \
+	netmon_m3u8_curl \
 
-netmon_hls.fixed: netmon_hls
-	sed 's:^libpath=.*###Makefile###:libpath=$(PREFIX)/lib/netmon_hls:' netmon_hls > $@
+all:
+	@echo run \'make install\'
 
-install: netmon_hls.fixed
+install:
 	mkdir -p $(PREFIX)/bin
-	mkdir -p $(PREFIX)/lib/netmon_hls
 
-	rm -f $(PREFIX)/bin/netmon_hls
-	cp netmon_hls.fixed $(PREFIX)/bin/netmon_hls
-	chmod +x $(PREFIX)/bin/netmon_hls
-
-	rm -rf $(PREFIX)/lib/netmon_hls
-	cp -r lib $(PREFIX)/lib/netmon_hls
-uninstall:
-	rm -f $(PREFIX)/bin/netmon_hls
-	rm -rf $(PREFIX)/lib/netmon_hls
-clean:
-	rm -f netmon_hls.fixed
+	for f in $(PROGS); \
+	do \
+		rm -f "$(PREFIX)/bin/$$f"; \
+		cp "$$f" "$(PREFIX)/bin/$$f"; \
+		chmod +x "$(PREFIX)/bin/$$f"; \
+	done
