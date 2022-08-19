@@ -12,8 +12,9 @@ import (
 )
 
 var (
-	addr  = flag.String("addr", ":8000", "address:port")
-	mflag = flag.Bool("m", false, "handle multipart/form-data POST request")
+	addr     = flag.String("addr", ":8000", "`address:port`")
+	mflag    = flag.Bool("m", false, "handle multipart/form-data POST request")
+	pathflag = flag.String("path", "/upload", "`path` to handle POST request")
 )
 
 func Usage() {
@@ -79,6 +80,6 @@ func main() {
 	}
 
 	http.Handle("/", http.FileServer(http.Dir(".")))
-	http.HandleFunc("/upload", postHandler)
+	http.HandleFunc(*pathflag, postHandler)
 	log.Fatal(http.ListenAndServe(*addr, nil))
 }
