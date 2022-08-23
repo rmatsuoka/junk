@@ -18,7 +18,7 @@ var (
 )
 
 func Usage() {
-	fmt.Fprintln(os.Stderr, "postsrv [-addr addr] cmd [arg ...]")
+	fmt.Fprintln(os.Stderr, "usage: postsrv [-flags] cmd [arg ...]")
 	flag.PrintDefaults()
 }
 
