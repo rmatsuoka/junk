@@ -14,9 +14,9 @@ import (
 )
 
 var (
-	stdout   io.Writer
-	exitCode = 0
-	uflag    = flag.Bool("u", false, "unbuffer")
+	stdout   io.Writer = os.Stdout
+	exitCode           = 0
+	uflag              = flag.Bool("u", false, "unbuffer")
 )
 
 func main() {
@@ -24,9 +24,7 @@ func main() {
 	log.SetPrefix("dump9p: ")
 	flag.Parse()
 
-	if *uflag {
-		stdout = os.Stdout
-	} else {
+	if !*uflag {
 		stdout = bufio.NewWriter(os.Stdout)
 	}
 
@@ -50,7 +48,9 @@ func main() {
 	}
 }
 
-func look9p(r io.Reader) {
+func look9p(f *os.File) {
+	name := f.Name()
+	var r io.Reader = f
 	if !*uflag {
 		r = bufio.NewReader(r)
 	}
@@ -60,7 +60,7 @@ func look9p(r io.Reader) {
 			return
 		}
 		if err != nil {
-			log.Print(err)
+			log.Printf("readfcall %s: %v", name, err)
 			return
 		}
 		fmt.Fprintln(stdout, f)
