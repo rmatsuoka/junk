@@ -15,7 +15,6 @@ var (
 	r = flag.Bool("r", false, "release")
 	v = flag.Bool("v", false, "version")
 	m = flag.Bool("m", false, "machine")
-	d = flag.Bool("d", false, "domain name")
 )
 
 func main() {
@@ -27,21 +26,20 @@ func main() {
 	}
 
 	x := []struct {
-		flag *bool
-		data *[65]byte
+		flag bool
+		data string
 	}{
-		{s, &u.Sysname},
-		{n, &u.Nodename},
-		{r, &u.Release},
-		{v, &u.Version},
-		{m, &u.Machine},
-		{d, &u.Domainname},
+		{*s, unix.ByteSliceToString(u.Sysname[:])},
+		{*n, unix.ByteSliceToString(u.Nodename[:])},
+		{*r, unix.ByteSliceToString(u.Release[:])},
+		{*v, unix.ByteSliceToString(u.Version[:])},
+		{*m, unix.ByteSliceToString(u.Machine[:])},
 	}
 
 	spc := ""
 	for _, s := range x {
-		if *s.flag || *a {
-			fmt.Printf("%s%s", spc, *s.data)
+		if s.flag || *a {
+			fmt.Printf("%s%s", spc, s.data)
 			spc = " "
 		}
 	}
