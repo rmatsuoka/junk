@@ -71,6 +71,7 @@ func main() {
 	flag.Usage = Usage
 	flag.Parse()
 	if flag.NArg() == 0 {
+		log.Print("missing arguments")
 		Usage()
 		os.Exit(1)
 	}
