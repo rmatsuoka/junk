@@ -1,0 +1,114 @@
+#!/usr/bin/env perl
+
+use warnings;
+use strict;
+use utf8;
+use autodie;
+
+use File::Temp qw( tempfile tempdir );
+use File::Basename;
+use Getopt::Long;
+
+use constant {
+	ERROR    => 0,
+	GENERAL  => 1,
+	REQUEST  => 2,
+	RESPONSE => 3,
+};
+
+# output: ($url, \%requestHeaders, \%responseHeaders)
+sub readNetmon {
+	my ($url, %reqHeaders, %resHeaders);
+	my ($k, $v, $l, $state);
+
+	$state = GENERAL;
+	while (<>) {
+		chomp($l = $_);
+
+		if (/^Request URL:/) {
+			(undef, $url) = split(/:/, $l, 2);
+			next;
+		}
+		if (/^Request headers$/) {
+			$state = REQUEST;
+			next;
+		}
+		if (/^Response headers$/) {
+			$state = RESPONSE;
+			next;
+		}
+
+		if ($state == GENERAL) {
+		} elsif ($state == REQUEST) {
+			($k, $v) = split(/:/, $l, 2);
+			$reqHeaders{$k} = $v;
+		} elsif ($state == RESPONSE) {
+			($k, $v) = split(/:/, $l, 2);
+			$resHeaders{$k} = $v;
+		}
+	}
+	return ($url, \%reqHeaders, \%resHeaders);
+}
+
+sub generateCURLCmdLine {
+	my ($urlsRef, $option, $reqHeadersRef) = @_;
+
+	my $cmd = "curl $option --compressed --retry 5 --retry-delay 30 \\\n";
+
+	while (my ($k, $v) = each %$reqHeadersRef) {
+		$cmd .= "\t-H '$k: $v' \\\n";
+	}
+
+	foreach (@$urlsRef) {
+		$cmd .= "\t'$_' \\\n";
+	}
+	$cmd;
+}
+
+sub psystem {
+	print STDERR "@_\n";
+	system "@_";
+}
+
+my $outname = "out.mp4";
+my $notcleanup = 0;
+
+GetOptions(
+	"o=s" => \$outname,
+	"n"   => \$notcleanup,
+) or die("Error in command line arguments\n");
+
+my ($url, $reqHeaders, $resHeaders) = &readNetmon();
+my $prefix = dirname($url);
+
+my ($m3u8Fh, $m3u8name) = tempfile("netmon_hls2mp4.m3u8.XXXXXX", TMPDIR => 1, UNLINK => !$notcleanup);
+print STDERR "$m3u8name\n";
+
+my $tempdir = tempdir("netmon_hls2mp4.dir.XXXXXX", TMPDIR => 1, CLEANUP => !$notcleanup);
+print STDERR "$tempdir\n";
+
+my @urls;
+my $cmd = &generateCURLCmdLine([$url], "-o -", $reqHeaders);
+open(my $curlFh, '-|', $cmd) or die $!;
+while (<$curlFh>) {
+	if (/^#/) {
+		print {$m3u8Fh} $_;
+		next;
+	}
+
+	chomp;
+	if (/^http/) {
+		push(@urls, $_);
+	} else {
+		push(@urls, "$prefix/$_");
+	}
+	print {$m3u8Fh} "$tempdir/" . basename($_) . "\n";
+}
+close $curlFh;
+close $m3u8Fh;
+
+&psystem(&generateCURLCmdLine(\@urls, "--output-dir $tempdir --remote-name-all", $reqHeaders)) == 0
+	or die "system failed: $?";
+
+&psystem("ffmpeg -allowed_extensions ALL -i $m3u8name -c copy $outname") == 0
+	or die "system failed: $?";
