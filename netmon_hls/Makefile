@@ -1,8 +1,6 @@
 PREFIX=$(HOME)/.local
 PROGS= \
-	netmon_hls \
 	netmon2curl \
-	netmon_m3u8_curl \
 	netmon_hls2mp4
 
 all:

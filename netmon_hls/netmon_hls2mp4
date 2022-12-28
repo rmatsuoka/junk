@@ -7,6 +7,7 @@ use autodie;
 
 use File::Temp qw( tempfile tempdir );
 use File::Basename;
+use File::Path qw(remove_tree);
 use Getopt::Long;
 
 use constant {
@@ -78,13 +79,20 @@ GetOptions(
 	"n"   => \$notcleanup,
 ) or die("Error in command line arguments\n");
 
+if(-e $outname) {
+	die "create $outname: already exists";
+} else {
+	open(my $fc, ">", $outname);
+	close($fc);
+}
+
 my ($url, $reqHeaders, $resHeaders) = &readNetmon();
 my $prefix = dirname($url);
 
-my ($m3u8Fh, $m3u8name) = tempfile("netmon_hls2mp4.m3u8.XXXXXX", TMPDIR => 1, UNLINK => !$notcleanup);
+my ($m3u8Fh, $m3u8name) = tempfile("netmon_hls2mp4.m3u8.$$.XXXXXX", TMPDIR => 1);
 print STDERR "$m3u8name\n";
 
-my $tempdir = tempdir("netmon_hls2mp4.dir.XXXXXX", TMPDIR => 1, CLEANUP => !$notcleanup);
+my $tempdir = tempdir("netmon_hls2mp4.dir.$$.XXXXXX", TMPDIR => 1);
 print STDERR "$tempdir\n";
 
 my @urls;
@@ -110,5 +118,11 @@ close $m3u8Fh;
 &psystem(&generateCURLCmdLine(\@urls, "--output-dir $tempdir --remote-name-all", $reqHeaders)) == 0
 	or die "system failed: $?";
 
-&psystem("ffmpeg -allowed_extensions ALL -i $m3u8name -c copy $outname") == 0
+# it's ok that overwrite existing file since I have already checked.
+&psystem("ffmpeg -y -allowed_extensions ALL -i $m3u8name -c copy $outname") == 0
 	or die "system failed: $?";
+
+if (!$notcleanup) {
+	unlink $m3u8name;
+	remove_tree($tempdir, {safe => 1})
+}
