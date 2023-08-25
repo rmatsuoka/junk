@@ -45,7 +45,7 @@ sub ls($dir) {
 			scalar getgrgid $stat->gid,
 			scalar getpwuid $stat->uid,
 			$_->{stat}->size,
-			$t->strftime("%b %d %Y %T"),
+			$t->strftime("%b %d %Y %H:%M"),
 			$_->{name}
 		);
 	}
