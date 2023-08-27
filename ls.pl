@@ -39,15 +39,15 @@ sub ls($dir) {
 
 	foreach (statdir $dir) {
 		my $stat = $_->{stat};
-		my $rwx = format_mode $_->{stat}->mode;
-		my $t = localtime $_->{stat}->mtime;
+		my $rwx = format_mode $stat->mode;
+		my $t = localtime $stat->mtime;
 		printf(
 			"%s %2d %s %s %10d %s %s\n",
 			$rwx,
-			$_->{stat}->nlink,
+			$stat->nlink,
 			scalar getgrgid $stat->gid,
 			scalar getpwuid $stat->uid,
-			$_->{stat}->size,
+			$stat->size,
 			$t->strftime("%b %d %Y %H:%M"),
 			$_->{name}
 		);
