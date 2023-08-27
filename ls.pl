@@ -8,13 +8,17 @@ sub statdir($dir) {
 	use File::stat;
 	use File::Spec::Functions;
 
+	my $prefix = $dir // "";
+	$dir = $dir // ".";
 	opendir my $dh, $dir or return;
 	defer { closedir $dh; }
 
 	my @stats;
 	foreach (readdir $dh) {
 		next if /^\.\.?$/;
-		push @stats, { stat => stat $_, name => $_ };
+		my $name = $prefix ? catfile($prefix, $_) : $_;
+		my $stat = stat $name;
+		push @stats, { stat => $stat, name => $name };
 	}
 	return sort { $a->{name} cmp $b->{name} } @stats;
 }
@@ -51,6 +55,7 @@ sub ls($dir) {
 	}
 }
 
+unshift @ARGV, undef unless @ARGV;
 foreach (@ARGV) {
 	ls($_);
 }
