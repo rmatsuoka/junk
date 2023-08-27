@@ -38,7 +38,6 @@ sub ls($dir) {
 	use Time::Piece;
 
 	foreach (statdir $dir) {
-		local $, = ' ';
 		my $stat = $_->{stat};
 		my $rwx = format_mode $_->{stat}->mode;
 		my $t = localtime $_->{stat}->mtime;
