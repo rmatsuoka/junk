@@ -78,20 +78,20 @@ func (p *parser) keyvalue(s string) (key string, value any, err error) {
 	return key, value, err
 }
 
-func (p *parser) value(v string, typ *typ) (any, error) {
-	if typ.kind == kindAny {
+func (p *parser) value(v string, t *typ) (any, error) {
+	if t.kind == kindAny {
 		switch v {
 		case "{":
 			return p.object()
 		case "[":
-			return p.array()
+			return p.array(&typ{kind: kindAny}, -1)
 		default:
 			return v, nil
 		}
 	} else {
-		switch typ.kind {
+		switch t.kind {
 		case kindNumber, kindString, kindBoolean:
-			return unmarshal[typ.kind](v)
+			return unmarshal[t.kind](v)
 		case kindObject:
 			if v != "{" {
 				return nil, errTypeMismatch
@@ -101,7 +101,7 @@ func (p *parser) value(v string, typ *typ) (any, error) {
 			if v != "[" {
 				return nil, errTypeMismatch
 			}
-			return p.fixedArray(typ.elem, typ.length)
+			return p.array(t.elem, t.length)
 		default:
 			panic("unreachable")
 		}
@@ -162,7 +162,7 @@ func parseType(s string) (*typ, error) {
 		}
 		var l int
 		if i == 1 {
-			l = 0
+			l = -1
 		} else {
 			var err error
 			l, err = strconv.Atoi(s[1:i])
@@ -204,13 +204,16 @@ var unmarshal = map[typeKind]func(s string) (any, error){
 	kindAny:     func(s string) (any, error) { panic("not reachble") },
 }
 
-func (p *parser) array() ([]any, error) {
+func (p *parser) array(elem *typ, length int) ([]any, error) {
+	if length >= 0 {
+		return p.fixedArray(elem, length)
+	}
 	ret := []any{}
 	for s, ok := p.next(); ok; s, ok = p.next() {
 		if s == "]" {
 			return ret, nil
 		}
-		v, err := p.value(s, &typ{kind: kindAny})
+		v, err := p.value(s, elem)
 		if err != nil {
 			panic(err)
 		}
