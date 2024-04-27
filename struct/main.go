@@ -35,7 +35,7 @@ func parse(args []string) (any, error) {
 	if !ok {
 		return nil, errUnexpectedEOF
 	}
-	return p.value(s, typ{kind: kindAny})
+	return p.value(s, &typ{kind: kindAny})
 }
 
 func (p *parser) object() (map[string]any, error) {
@@ -78,7 +78,7 @@ func (p *parser) keyvalue(s string) (key string, value any, err error) {
 	return key, value, err
 }
 
-func (p *parser) value(v string, typ typ) (any, error) {
+func (p *parser) value(v string, typ *typ) (any, error) {
 	if typ.kind == kindAny {
 		switch v {
 		case "{":
@@ -118,8 +118,19 @@ func lastCut(s, sep string) (before, after string, found bool) {
 
 type typ struct {
 	kind   typeKind
-	elem   typeKind // for array
-	length int      // for array
+	elem   *typ // for array
+	length int  // for array
+}
+
+func (t *typ) String() string {
+	if t.kind == kindArray {
+		if t.length >= 0 {
+			return "[" + strconv.Itoa(t.length) + "]" + t.elem.String()
+		} else {
+			return "[]" + t.elem.String()
+		}
+	}
+	return string(t.kind)
 }
 
 type typeKind string
@@ -135,9 +146,9 @@ const (
 
 var errUnknownType = errors.New("unknown type")
 
-func parseType(s string) (typ, error) {
+func parseType(s string) (*typ, error) {
 	if len(s) == 0 {
-		return typ{kind: kindAny}, nil
+		return &typ{kind: kindAny}, nil
 	}
 	if s[0] == '[' {
 		if len(s) == 1 {
@@ -160,15 +171,11 @@ func parseType(s string) (typ, error) {
 				// return typ{}, errUnknownType
 			}
 		}
-		elem := typeKind(s[i+1:])
-		if elem == "" {
-			elem = kindAny
+		elem, err := parseType(s[i+1:])
+		if err != nil {
+			log.Panicf("unknown type: %s", s)
 		}
-		if _, ok := unmarshal[elem]; !ok {
-			panic(errUnknownType)
-			// return typ{}, errUnknownType
-		}
-		return typ{kind: kindArray, elem: elem, length: l}, nil
+		return &typ{kind: kindArray, elem: elem, length: l}, nil
 	}
 	name := typeKind(s)
 	if name == "" {
@@ -179,7 +186,7 @@ func parseType(s string) (typ, error) {
 		panic(errUnknownType)
 		// return typ{}, errUnknownType
 	}
-	return typ{kind: name}, nil
+	return &typ{kind: name}, nil
 }
 
 func unmarshalString[T any](s string) (any, error) {
@@ -205,7 +212,7 @@ func (p *parser) array() ([]any, error) {
 		if s == "]" {
 			return ret, nil
 		}
-		v, err := p.value(s, typ{kind: kindAny})
+		v, err := p.value(s, &typ{kind: kindAny})
 		if err != nil {
 			panic(err)
 		}
@@ -215,7 +222,7 @@ func (p *parser) array() ([]any, error) {
 	// return nil, errUnexpectedEOF
 }
 
-func (p *parser) fixedArray(elem typeKind, length int) ([]any, error) {
+func (p *parser) fixedArray(elem *typ, length int) ([]any, error) {
 	var (
 		ret []any
 	)
@@ -224,7 +231,7 @@ func (p *parser) fixedArray(elem typeKind, length int) ([]any, error) {
 		if !ok {
 			panic(errUnexpectedEOF)
 		}
-		value, err := p.value(s, typ{kind: elem})
+		value, err := p.value(s, elem)
 		if err != nil {
 			return nil, err
 		}
