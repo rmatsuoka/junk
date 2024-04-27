@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"flag"
-	"fmt"
 	"log"
 	"os"
 	"strconv"
@@ -31,25 +30,12 @@ func (p *parser) next() (string, bool) {
 }
 
 func parse(args []string) (any, error) {
-	var (
-		ret any
-		err error
-		p   = parser{args: args}
-	)
+	p := parser{args: args}
 	s, ok := p.next()
 	if !ok {
 		return nil, errUnexpectedEOF
 	}
-	switch s {
-	case "{":
-		ret, err = p.object()
-	case "[":
-		ret, err = p.array()
-	default:
-		// return nil, fmt.Errorf("expected { or ( but got %s", s)
-		panic(fmt.Sprintf("expected { or ( but got %s", s))
-	}
-	return ret, err
+	return p.value(s, typ{name: typeAny})
 }
 
 func (p *parser) object() (map[string]any, error) {
@@ -88,37 +74,38 @@ func (p *parser) keyvalue(s string) (key string, value any, err error) {
 		panic(err)
 	}
 
+	value, err = p.value(v, typ)
+	return key, value, err
+}
+
+func (p *parser) value(v string, typ typ) (any, error) {
 	if typ.name == typeAny {
-		if len(v) != 1 {
-			return key, v, nil
-		}
-		switch v[0] {
-		case '{':
-			value, err = p.object()
-		case '[':
-			value, err = p.array()
+		switch v {
+		case "{":
+			return p.object()
+		case "[":
+			return p.array()
 		default:
-			value = v
+			return v, nil
 		}
 	} else {
 		switch typ.name {
 		case typeNumber, typeString, typeBoolean:
-			value, err = types[typ.name](v)
+			return unmarshal[typ.name](v)
 		case typeObject:
 			if v != "{" {
-				return "", nil, errTypeMismatch
+				return nil, errTypeMismatch
 			}
-			value, err = p.object()
+			return p.object()
 		case typeArray:
 			if v != "[" {
-				return "", nil, errTypeMismatch
+				return nil, errTypeMismatch
 			}
-			value, err = p.fixedArray(typ.typeVar, typ.length)
+			return p.fixedArray(typ.typeVar, typ.length)
 		default:
 			panic("unreachable")
 		}
 	}
-	return key, value, err
 }
 
 func lastCut(s, sep string) (before, after string, found bool) {
@@ -177,7 +164,7 @@ func parseType(s string) (typ, error) {
 		if typeVar == "" {
 			typeVar = typeAny
 		}
-		if _, ok := types[typeVar]; !ok {
+		if _, ok := unmarshal[typeVar]; !ok {
 			panic(errUnknownType)
 			// return typ{}, errUnknownType
 		}
@@ -187,7 +174,7 @@ func parseType(s string) (typ, error) {
 	if name == "" {
 		name = typeAny
 	}
-	_, ok := types[name]
+	_, ok := unmarshal[name]
 	if !ok {
 		panic(errUnknownType)
 		// return typ{}, errUnknownType
@@ -195,15 +182,15 @@ func parseType(s string) (typ, error) {
 	return typ{name: name}, nil
 }
 
-func unmarshal[T any](s string) (any, error) {
+func unmarshalString[T any](s string) (any, error) {
 	var x T
 	err := json.Unmarshal([]byte(s), &x)
 	return x, err
 }
 
-var types = map[typeName]func(s string) (any, error){
-	typeNumber:  unmarshal[float64],
-	typeBoolean: unmarshal[bool],
+var unmarshal = map[typeName]func(s string) (any, error){
+	typeNumber:  unmarshalString[float64],
+	typeBoolean: unmarshalString[bool],
 	typeString:  func(s string) (any, error) { return s, nil },
 	typeObject:  func(s string) (any, error) { panic("not reachable") },
 	typeArray:   func(s string) (any, error) { panic("not reachable") },
@@ -213,31 +200,16 @@ var types = map[typeName]func(s string) (any, error){
 func (p *parser) array() ([]any, error) {
 	var (
 		ret []any
-		err error
 	)
 	for s, ok := p.next(); ok; s, ok = p.next() {
-		if len(s) != 1 {
-			ret = append(ret, s)
-			continue
+		if s == "]" {
+			return ret, nil
 		}
-		switch s {
-		case "{":
-			o, err := p.object()
-			if err != nil {
-				return nil, err
-			}
-			ret = append(ret, o)
-		case "[":
-			a, err := p.array()
-			if err != nil {
-				return nil, err
-			}
-			ret = append(ret, a)
-		case "]":
-			return ret, err
-		default:
-			ret = append(ret, s)
+		v, err := p.value(s, typ{name: typeAny})
+		if err != nil {
+			panic(err)
 		}
+		ret = append(ret, v)
 	}
 	panic(errUnexpectedEOF)
 	// return nil, errUnexpectedEOF
@@ -246,32 +218,13 @@ func (p *parser) array() ([]any, error) {
 func (p *parser) fixedArray(typeVar typeName, length int) ([]any, error) {
 	var (
 		ret []any
-		err error
 	)
 	for i := 0; i < length; i++ {
 		s, ok := p.next()
 		if !ok {
 			panic(errUnexpectedEOF)
 		}
-		var value any
-		switch typeVar {
-		case typeNumber, typeString, typeBoolean:
-			value, err = types[typeVar](s)
-		case typeObject:
-			if s != "{" {
-				return nil, errTypeMismatch
-			}
-			value, err = p.object()
-		case typeArray:
-			if s != "[" {
-				return nil, errTypeMismatch
-			}
-			value, err = p.array()
-		case typeAny:
-			value = s
-		default:
-			panic("unreachable")
-		}
+		value, err := p.value(s, typ{name: typeVar})
 		if err != nil {
 			return nil, err
 		}
@@ -281,7 +234,7 @@ func (p *parser) fixedArray(typeVar typeName, length int) ([]any, error) {
 	if s != "]" {
 		return nil, errTypeMismatch
 	}
-	return ret, err
+	return ret, nil
 }
 
 func main() {
