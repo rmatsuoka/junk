@@ -139,28 +139,28 @@ func parseType(s string) (typ, error) {
 	if len(s) == 0 {
 		return typ{kind: kindAny}, nil
 	}
-	if s[len(s)-1] == ']' {
+	if s[0] == '[' {
 		if len(s) == 1 {
 			panic(errUnknownType)
 			// return typ{}, errUnknownType
 		}
-		i := strings.LastIndexByte(s, '[')
+		i := strings.IndexByte(s, ']')
 		if i < 0 {
 			panic(errUnknownType)
 			// return typ{}, errUnknownType
 		}
 		var l int
-		if i == len(s)-2 {
+		if i == 1 {
 			l = 0
 		} else {
 			var err error
-			l, err = strconv.Atoi(s[i+1 : len(s)-1])
+			l, err = strconv.Atoi(s[1:i])
 			if err != nil {
-				log.Panicf("s[%d:%d]: %v", i+1, len(s)-2, errUnknownType.Error())
+				log.Panicf("s[%d:%d]: %v", 1, i, errUnknownType.Error())
 				// return typ{}, errUnknownType
 			}
 		}
-		elem := typeKind(s[:i])
+		elem := typeKind(s[i+1:])
 		if elem == "" {
 			elem = kindAny
 		}
