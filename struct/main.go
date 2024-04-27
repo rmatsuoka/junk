@@ -205,9 +205,7 @@ var unmarshal = map[typeKind]func(s string) (any, error){
 }
 
 func (p *parser) array() ([]any, error) {
-	var (
-		ret []any
-	)
+	ret := []any{}
 	for s, ok := p.next(); ok; s, ok = p.next() {
 		if s == "]" {
 			return ret, nil
@@ -223,9 +221,7 @@ func (p *parser) array() ([]any, error) {
 }
 
 func (p *parser) fixedArray(elem *typ, length int) ([]any, error) {
-	var (
-		ret []any
-	)
+	ret := []any{}
 	for i := 0; i < length; i++ {
 		s, ok := p.next()
 		if !ok {
