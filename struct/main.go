@@ -101,7 +101,7 @@ func (p *parser) value(v string, typ typ) (any, error) {
 			if v != "[" {
 				return nil, errTypeMismatch
 			}
-			return p.fixedArray(typ.typeVar, typ.length)
+			return p.fixedArray(typ.elem, typ.length)
 		default:
 			panic("unreachable")
 		}
@@ -117,9 +117,9 @@ func lastCut(s, sep string) (before, after string, found bool) {
 }
 
 type typ struct {
-	kind    typeKind
-	typeVar typeKind // for array
-	length  int      // for array
+	kind   typeKind
+	elem   typeKind // for array
+	length int      // for array
 }
 
 type typeKind string
@@ -160,15 +160,15 @@ func parseType(s string) (typ, error) {
 				// return typ{}, errUnknownType
 			}
 		}
-		typeVar := typeKind(s[:i])
-		if typeVar == "" {
-			typeVar = kindAny
+		elem := typeKind(s[:i])
+		if elem == "" {
+			elem = kindAny
 		}
-		if _, ok := unmarshal[typeVar]; !ok {
+		if _, ok := unmarshal[elem]; !ok {
 			panic(errUnknownType)
 			// return typ{}, errUnknownType
 		}
-		return typ{kind: kindArray, typeVar: typeVar, length: l}, nil
+		return typ{kind: kindArray, elem: elem, length: l}, nil
 	}
 	name := typeKind(s)
 	if name == "" {
@@ -215,7 +215,7 @@ func (p *parser) array() ([]any, error) {
 	// return nil, errUnexpectedEOF
 }
 
-func (p *parser) fixedArray(typeVar typeKind, length int) ([]any, error) {
+func (p *parser) fixedArray(elem typeKind, length int) ([]any, error) {
 	var (
 		ret []any
 	)
@@ -224,7 +224,7 @@ func (p *parser) fixedArray(typeVar typeKind, length int) ([]any, error) {
 		if !ok {
 			panic(errUnexpectedEOF)
 		}
-		value, err := p.value(s, typ{kind: typeVar})
+		value, err := p.value(s, typ{kind: elem})
 		if err != nil {
 			return nil, err
 		}
