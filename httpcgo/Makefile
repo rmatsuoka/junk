@@ -1,11 +1,11 @@
 run: a.out
 	./a.out
 
-a.out: get.c x
-	cc get.c x
+a.out: get.c get
+	cc get.c get
 
-x: add.go
-	go build --buildmode=c-shared
+get: get.go
+	go build --buildmode=c-shared get.go
 
 clean:
 	go clean
