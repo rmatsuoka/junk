@@ -17,6 +17,8 @@ var (
 
 func main() {
 	flag.Parse()
+	log.SetFlags(0)
+
 	enableTLS := *certFile != "" || *keyFile != ""
 
 	if enableTLS {
