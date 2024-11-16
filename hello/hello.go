@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/tls"
 	"flag"
 	"fmt"
 	"log"
@@ -28,14 +29,29 @@ func main() {
 	}
 
 	http.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {
+		var (
+			cipherSuite        = ""
+			negotiatedProtocol = ""
+			tlsVersion         = ""
+		)
+		if req.TLS != nil {
+			cipherSuite = tls.CipherSuiteName(req.TLS.CipherSuite)
+			negotiatedProtocol = req.TLS.NegotiatedProtocol
+			tlsVersion = tls.VersionName(req.TLS.Version)
+		}
 		slog.InfoContext(req.Context(), "request",
+			"proto", req.Proto,
 			"method", req.Method,
 			"host", req.Host,
 			"url", req.URL.String(),
 			"pattern", req.Pattern,
 			"remoteAddr", req.RemoteAddr,
 			"userAgent", req.UserAgent(),
-			"tls", req.TLS,
+			slog.Group("tls",
+				"cipherSuite", cipherSuite,
+				"negotiatedProtocol", negotiatedProtocol,
+				"version", tlsVersion,
+			),
 		)
 		fmt.Fprintf(w, "hello, %s\n", req.RemoteAddr)
 	})
