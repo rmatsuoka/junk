@@ -14,5 +14,5 @@ clean:
 .POHNY: dist
 dist: $(disttar)
 
-$(disttar): $(target) hello.service install.sh
-	tar zcf $@ hello hello.service install.sh
+$(disttar): $(target) install.sh
+	tar zcf $@ hello install.sh

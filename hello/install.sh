@@ -13,4 +13,3 @@ do_install() {
 }
 
 do_install hello "${PREFIX}/bin"
-do_install hello.service "${PREFIX}/lib/systemd/system"

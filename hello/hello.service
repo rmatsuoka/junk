@@ -1,8 +1,0 @@
-[Unit]
-Description=hello
-
-[Service]
-ExecStart=/usr/local/bin/hello -addr :443 -cert /etc/letsencrypt/live/sakuratest.rmatsuoka.org/fullchain.pem -key /etc/letsencrypt/live/sakuratest.rmatsuoka.org/privkey.pem
-
-[Install]
-WantedBy=multi-user.target
