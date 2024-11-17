@@ -1,0 +1,103 @@
+#!/bin/sh
+
+set -u
+
+progname=$(basename "$0")
+
+fatal() {
+	printf '%s: %s\n' "$progname" "$*" 1>&2
+	exit 1
+}
+
+usage() {
+	cat 1>&2 <<EOF
+usage: $progname -u UNITNAME [-g REGEXP] [-c]
+-u UNITNAME
+        unit name
+-g REGEXP
+        grep (default ".")
+-c      case-sensitive
+EOF
+	exit 2;
+}
+
+graph_def() {
+	metric_name="$1"
+	metric_label="$2"
+	cat <<EOF
+# mackerel-agent-plugin
+{
+  "graphs": {
+    "journal_count.#": {
+      "label": "Journal Count",
+      "unit": "integer",
+      "metrics": [
+        {
+          "name": "$metric_name",
+          "label": "$metric_label"
+        }
+      ]
+    }
+  }
+}
+EOF
+}
+
+# main
+unit=
+regexp=.
+case_sensitive=false
+
+while getopts cu:g:h OPT; do
+	case "$OPT" in
+	c) case_sensitive=true;;
+	u) unit="$OPTARG";;
+	g) regexp="$OPTARG";;
+	?) usage;;
+	esac
+done
+shift $((OPTIND-1))
+
+[ -z "$unit" ] && fatal "not set -u (unit)"
+[ -z "$regexp" ] && fatal "empty string -g (regexp)"
+
+escaped_regexp="$(printf "%s" "${regexp}" | sed 's/[^-a-zA-Z0-9_]/_/g')"
+metric_name="$(
+	printf 'journal_count.%s.%s' "${unit}" "${escaped_regexp}" \
+	| sed 's/[^-a-zA-Z0-9_.]/_/g'
+)"
+
+if [ "${MACKEREL_AGENT_PLUGIN_META-0}" = 1 ]; then
+	graph_def "$escaped_regexp" "$regexp"
+	exit 0
+fi
+
+journalctl \
+	--output short-unix \
+	--unit "${unit}" \
+	--grep "${regexp}" \
+	--case-sensitive="$case_sensitive" \
+	--since -120 \
+	--until -60  \
+	--no-pager \
+	--quiet \
+| awk -v metric_name="$metric_name" '
+function round_time(time) {
+	return int(time / 60) * 60;
+}
+{
+	time = $1;
+	sub(/\..*/, "", time);
+	time = round_time(time);
+	count[time]++;
+}
+END {
+	n = 0
+	for (time in count) {
+		printf("%s\t%d\t%d\n", metric_name, count[time], time);
+		n++
+	}
+	if (n == 0) {
+		system("printf '\''%s\t%d\t%d\n'\'' '\''" metric_name "'\'' 0 \"$(date '\''+%s'\'')\"")
+	}
+}'
