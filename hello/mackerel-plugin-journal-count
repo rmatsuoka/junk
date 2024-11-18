@@ -22,8 +22,8 @@ EOF
 }
 
 graph_def() {
-	metric_name="$1"
-	metric_label="$2"
+	local metric_name="$1"
+	local metric_label="$2"
 	cat <<EOF
 # mackerel-agent-plugin
 {
